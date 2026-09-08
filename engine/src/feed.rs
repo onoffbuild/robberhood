@@ -38,6 +38,25 @@ pub struct Watch {
 }
 pub type SharedWatch = Arc<RwLock<Watch>>;
 
+/// Supervise the reader: the crate panics on a failed connect, so every run is a task whose
+/// panic is caught here, then reconnected after a short pause. The feed never dies quietly.
+pub async fn supervise(url: String, connections: u8, watch: SharedWatch, out: mpsc::Sender<Event>) {
+    let mut backoff = 500u64;
+    loop {
+        let (u, w, o) = (url.clone(), watch.clone(), out.clone());
+        let started = Instant::now();
+        let r = tokio::spawn(async move { run(&u, connections, w, o).await }).await;
+        match r {
+            Ok(Ok(())) => tracing::warn!("feed stream ended, reconnecting"),
+            Ok(Err(e)) => tracing::warn!("feed: {e}, reconnecting"),
+            Err(e) => tracing::warn!("feed task died: {}, reconnecting", e.into_panic().downcast_ref::<String>().map(String::as_str).unwrap_or("panic")),
+        }
+        if out.is_closed() { return; }
+        backoff = if started.elapsed().as_secs() > 30 { 500 } else { (backoff * 2).min(10_000) };
+        tokio::time::sleep(std::time::Duration::from_millis(backoff)).await;
+    }
+}
+
 pub async fn run(url: &str, connections: u8, watch: SharedWatch, out: mpsc::Sender<Event>) -> Result<()> {
     let reader = SequencerReader::new(url, abi::CHAIN_ID, connections).await;
     let mut stream = reader.into_stream();

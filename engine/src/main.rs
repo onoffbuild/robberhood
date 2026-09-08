@@ -7,9 +7,13 @@
 
 mod abi;
 mod clock;
+mod curve;
+mod exit;
 mod feed;
+mod ipc;
 mod sender;
 mod signer;
+mod state;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -40,6 +44,14 @@ enum Cmd {
     Warm { #[arg(long, default_value_t = 4)] lanes: usize },
     /// print when the opening tax crosses a ceiling
     Clock { #[arg(long, default_value_t = 300)] ceiling: u64 },
+    /// the engine proper: feed in, desk socket open, pre-signed exits armed. Paper mode without PRIVATE_KEY.
+    Run {
+        #[arg(long, env = "ENGINE_SOCKET", default_value = "/tmp/loxley-engine.sock")] socket: std::path::PathBuf,
+        #[arg(long, default_value_t = 2)] connections: u8,
+        #[arg(long, default_value_t = 4)] lanes: usize,
+        #[arg(long, env = "PRIVATE_KEY", hide_env_values = true)] private_key: Option<String>,
+        #[arg(long, default_value_t = 400_000)] gas_limit: u64,
+    },
 }
 
 #[tokio::main]
@@ -60,11 +72,34 @@ async fn main() -> Result<()> {
                 println!("lane {i}: round trip {:?}", t.elapsed());
             }
         }
+        Cmd::Run { socket, connections, lanes, private_key, gas_limit } => {
+            let sender = Arc::new(sender::Sender::new(&cli.rpc, lanes)?);
+            if let Err(e) = sender.warm().await { tracing::warn!("rpc lanes not warm yet: {e}"); }
+            let bank = match private_key {
+                Some(k) => {
+                    let signer: alloy::signers::local::PrivateKeySigner = k.trim().parse()?;
+                    let nonce = sender.nonce(signer.address()).await?;
+                    let gp = sender.gas_price().await?;
+                    tracing::info!("armed as {:?} nonce {} gas {} wei", signer.address(), nonce, gp);
+                    Some(signer::Bank::new(signer, abi::CHAIN_ID, nonce, signer::Gas { max_fee: gp * 2, max_priority: 0, limit: gas_limit }))
+                }
+                None => { tracing::warn!("no PRIVATE_KEY: paper mode, decisions are reported and never sent"); None }
+            };
+            let address = bank.as_ref().map(|b| b.address());
+            let watch = Arc::new(RwLock::new(feed::Watch::default()));
+            let (ftx, frx) = mpsc::channel(4096);
+            let (dtx, drx) = mpsc::channel(256);
+            let (otx, _) = tokio::sync::broadcast::channel(4096);
+            tokio::spawn(feed::supervise(cli.feed.clone(), connections, watch.clone(), ftx));
+            let hello = ipc::Outbound::Hello { engine: env!("CARGO_PKG_VERSION").into(), address, paper: bank.is_none() };
+            let o2 = otx.clone();
+            tokio::spawn(async move { if let Err(e) = ipc::serve(&socket, dtx, o2, hello).await { tracing::error!("socket: {e}"); } });
+            state::Engine::new(watch, bank, sender, otx).run(frx, drx).await;
+        }
         Cmd::Probe { connections, blocks } => {
             let watch = Arc::new(RwLock::new(feed::Watch::default()));
             let (tx, mut rx) = mpsc::channel(4096);
-            let url = cli.feed.clone();
-            tokio::spawn(async move { if let Err(e) = feed::run(&url, connections, watch, tx).await { tracing::error!("feed: {e}"); } });
+            tokio::spawn(feed::supervise(cli.feed.clone(), connections, watch, tx));
             let (mut n, mut sum_ms, mut max_ms) = (0u64, 0u128, 0u128);
             while let Some(ev) = rx.recv().await {
                 match ev {
