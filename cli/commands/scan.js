@@ -77,6 +77,27 @@ module.exports = async function scan(ctx) {
     log.raw(scoreLines(ctx, { parts: ls.parts.map(p => ({ k: p.k, v: p.v, max: null, note: p.note })) }).replace(/ \/ -/g, ''));
   }
 
+  /* the cohort: who bought early and who is still in */
+  if (T.launch) {
+    const K = require('../cohort');
+    const cohortBlocks = Math.round(env.num('SURVIVOR_COHORT_MIN') * 60 / (T.blockTime || 0.25));
+    const c = await ctx.chain.cohortRead(T.launch, T.head, { gradBn: T.grad && T.grad.bn, cohortBlocks, churnBlocks: cohortBlocks }).catch(() => null);
+    if (c) {
+      const v = K.verdict(c, { minHold: env.num('SURVIVOR_MIN_HOLD_PCT'), minRetrace: env.num('SURVIVOR_MIN_RETRACE_PCT'), maxDevOut: env.num('SURVIVOR_MAX_DEV_OUT_PCT'), maxCohortTop5: env.num('SURVIVOR_MAX_COHORT_TOP5_PCT'), minCohort: env.num('SURVIVOR_MIN_COHORT'), holdCare: env.num('SURVIVOR_HOLD_CARE_PCT') });
+      const pct = x => x == null ? 'n/a' : x.toFixed(0) + '%';
+      log.raw(''); log.raw(C.lime('  COHORT') + C.dim('  the first ' + env.num('SURVIVOR_COHORT_MIN') + ' minutes of buyers, from logs') + '  ' + ui.badge(v.stamp));
+      log.raw(ui.kv([
+        ['cohort', c.cohort + ' wallets · ' + c.cohortEth.toFixed(3) + ' ETH in'],
+        ['hold %', (c.holdPct == null ? C.dim('n/a') : (c.holdPct >= v.rules.minHold ? C.green : c.holdPct >= v.rules.holdCare ? C.amber : C.red)(pct(c.holdPct))) + C.dim('  of their ETH still in · ' + pct(c.holdCountPct) + ' by count · ' + c.reaccum + ' bought back')],
+        ['vs peak', pct(c.retracePct) + C.dim('  last curve trade against the peak curve trade')],
+        ['deployer out', pct(c.devOutPct) + C.dim('  of the ETH in, through ' + (c.funded ? c.funded + ' funded wallet' + (c.funded > 1 ? 's' : '') + ' too' : 'its own wallet'))],
+        ['top-5 of cohort', pct(c.cohortTop5Pct) + C.dim('  of what the cohort still holds')],
+        ['holders', c.holdersNow + C.dim('  now · ' + c.newHolders + ' new, ' + c.gone + ' gone in the last ' + env.num('SURVIVOR_COHORT_MIN') + ' min')]
+      ]));
+      if (v.why.length || v.warn.length) log.raw('  ' + [].concat(v.why.map(x => C.red(x)), v.warn.map(x => C.amber(x))).join(C.dim(' · ')));
+    }
+  }
+
   /* the pool */
   if (T.pair) {
     const tok = { pair: T.pair, pairs: T.pairs, chain: T.view };

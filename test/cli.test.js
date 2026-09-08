@@ -30,7 +30,7 @@ function run(args, opts) {
 test('help lists every command', async () => {
   const r = await run(['help']);
   assert.equal(r.code, 0);
-  ['doctor', 'hunt', 'radar', 'scan', 'watch', 'xray', 'exit', 'snipe', 'replay', 'desk', 'wallet', 'buy', 'sell', 'positions'].forEach(c => assert.ok(r.out.includes(c), c));
+  ['doctor', 'hunt', 'radar', 'survivors', 'scan', 'watch', 'xray', 'exit', 'snipe', 'replay', 'desk', 'wallet', 'buy', 'sell', 'positions'].forEach(c => assert.ok(r.out.includes(c), c));
   assert.ok(r.out.includes('reads by default'));
 });
 
@@ -48,6 +48,19 @@ test('scan: curve, launch, pool, council, exit and x-ray for a graduated token',
   assert.equal(r.code, 0, r.all);
   ['$MOCK', 'CURVE', 'LAUNCH', 'dev buy', '3.00% of supply', 'POOL', 'COUNCIL', 'SCOUT', 'EXIT', 'X-RAY', 'SERIAL', '8 in its last 50 transactions', 'survival index'].forEach(s => assert.ok(r.out.includes(s), 'missing ' + s));
   assert.ok(/ENTER|CAREFUL|AVOID/.test(r.out));
+});
+
+test('survivors: every launch in the window gets a cohort, a stamp and a reason', async () => {
+  const r = await run(['survivors', '--min-age', '0', '--window', '80000']);
+  assert.equal(r.code, 0, r.all);
+  assert.ok(r.out.includes('hold %') && r.out.includes('vs peak'), 'the table');
+  assert.ok(/SURVIVOR|CAREFUL|AVOID/.test(r.out), 'a stamp');
+  const j = await run(['survivors', '--min-age', '0', '--window', '80000', '--json']);
+  const o = JSON.parse(j.out);
+  assert.ok(o.rows.length >= 5, 'the mock launches');
+  const mock = o.rows.find(x => x.symbol === 'MOCK');
+  assert.ok(mock && mock.cohort.cohort > 10 && mock.cohort.holdPct != null, 'the graduated token has a cohort: ' + JSON.stringify(mock && mock.cohort));
+  assert.ok(['SURVIVOR', 'CAREFUL', 'AVOID'].includes(mock.stamp));
 });
 
 test('scan: a token still on its curve has no council, has a door', async () => {

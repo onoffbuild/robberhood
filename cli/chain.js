@@ -271,6 +271,22 @@ function makeChain(env, log) {
     return { transfers, sells, tokens: transfers.reduce((s, x) => s + (x.tokens || 0), 0) + sells.reduce((s, x) => s + (x.tokens || 0), 0), moved: transfers.length + sells.length > 0 };
   }
 
+  /* the cohort read: every curve trade and every token transfer since the launch, three log reads, then the maths
+     in cli/cohort.js. the curve stops trading at graduation, so its trades are read to that block. */
+  async function cohortRead(launch, head, opts) {
+    opts = opts || {};
+    const K = require('./cohort');
+    const curveTo = opts.gradBn || head;
+    const [tl, xl] = await Promise.all([
+      getLogs(launch.curve, [[T.BUY, T.SELL]], launch.bn, curveTo, { wide: true }).catch(() => []),
+      getLogs(launch.token, [T.TRANSFER], launch.bn, head, { wide: true }).catch(() => [])
+    ]);
+    const trades = tl.map(lg => parseFactoryLog(lg)).filter(Boolean);
+    const transfers = xl.map(lg => ({ bn: decUint(lg.blockNumber), idx: decUint(lg.logIndex) || 0, from: decAddr(lg.topics[1]), to: decAddr(lg.topics[2]), tokens: fromWei(decBig(lg.data)) || 0 }));
+    const exclude = [launch.curve, ZERO].concat(opts.exclude || []);
+    return K.build({ trades, transfers }, { launchBn: launch.bn, curve: launch.curve, cohortBlocks: opts.cohortBlocks || 600, deployer: launch.deployer, exclude, nowBn: head, churnBlocks: opts.churnBlocks || 600 });
+  }
+
   /* the deployer index: every launch and graduation in the window */
   async function buildIndex(window, head) {
     head = head || await blockNumber();
@@ -315,7 +331,7 @@ function makeChain(env, log) {
     return { blockTime: (a.timestamp - b.timestamp) / 1000 / (a.number - b.number), headAt: a.timestamp };
   }
 
-  return { rpc, factory, T, GRADS, SEL, ZERO, call, ethCall, blockNumber, chainId, getBlock, getCode, receipt, tx, getLogs, parseFactoryLog, curveRead, tokenRead, devBuy, curveBuyers, factoryRecord, devMoves, multicall, readLaunch, buildIndex, deployerRecord, addToIndex, measureBlockTime, sleep, dec: { decUint, decBig, decBool, decAddr, decString, fromWei, word, pad32, hex } };
+  return { rpc, factory, T, GRADS, SEL, ZERO, call, ethCall, blockNumber, chainId, getBlock, getCode, receipt, tx, getLogs, parseFactoryLog, curveRead, tokenRead, devBuy, curveBuyers, factoryRecord, devMoves, multicall, readLaunch, buildIndex, cohortRead, deployerRecord, addToIndex, measureBlockTime, sleep, dec: { decUint, decBig, decBool, decAddr, decString, fromWei, word, pad32, hex } };
 }
 
 module.exports = { makeChain, makeRpc, T, GRADS, SEL, ZERO, decUint, decBig, decBool, decAddr, decString, fromWei, word, pad32, hex, sleep };

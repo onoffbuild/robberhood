@@ -14,6 +14,7 @@ const COMMANDS = {
   market: { file: 'market', h: 'what is trading on Robinhood Chain right now: every token DexScreener lists on the chain, its deepest pool, the desk\'s stamp', a: '[--top N] [--by liq|vol|age|change|score] [--token 0x…] [--json]' },
   hunt: { file: 'hunt', h: 'every pons v2 launch as it lands, read and scored, with +15 s and +60 s follow-ups', a: '[--window N] [--for S] [--fire-only] [--no-follow] [--json] [--sim]' },
   radar: { file: 'radar', h: 'the launch radar, drawn in the terminal', a: '[--window N] [--for S] [--sim]' },
+  survivors: { file: 'survivors', h: 'coins that already ran and held: the FOMO cohort\'s hold %, price against its peak, the deployer\'s ETH out, for every launch in the window', a: '[--window N] [--min-hold PCT] [--min-age MIN] [--graduated] [--top N] [--json]' },
   scan: { file: 'scan', h: 'everything about one token: curve or pool, council, x-ray, the door', a: '<token>' },
   watch: { file: 'watch', h: 'the exit watch: one line per poll, the siren when the pool turns, a black box if you ask', a: '<token> [--every S] [--for S] [--rec FILE] [--sim]' },
   xray: { file: 'xray', h: 'the deployer behind a token, or a wallet directly', a: '<token|wallet>' },
@@ -54,7 +55,7 @@ function makeLog(flags) {
   return { info: s => line(ui.C.none, s), ok: s => line(ui.C.green, s), warn: s => line(ui.C.amber, s), error: s => line(ui.C.red, s), dim: s => line(ui.C.dim, s), raw: s => process.stdout.write(s + '\n') };
 }
 
-const GROUPS = [['start here', ['tour']], ['read', ['doctor', 'market', 'hunt', 'radar', 'scan', 'watch', 'xray', 'dev', 'fees', 'exit', 'replay', 'desk']], ['trade', ['wallet', 'buy', 'sell', 'positions', 'profile', 'snipe', 'follow', 'claim']]];
+const GROUPS = [['start here', ['tour']], ['read', ['doctor', 'market', 'hunt', 'radar', 'survivors', 'scan', 'watch', 'xray', 'dev', 'fees', 'exit', 'replay', 'desk']], ['trade', ['wallet', 'buy', 'sell', 'positions', 'profile', 'snipe', 'follow', 'claim']]];
 function help() {
   const w = Math.max(...Object.keys(COMMANDS).map(k => k.length));
   const out = [ui.logo('the exit desk for Robinhood Chain · v' + VERSION + ' · reads by default, signs only when you say so'), ''];

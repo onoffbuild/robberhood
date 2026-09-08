@@ -12,7 +12,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test test/engine.test.js test/cli.test.js test/trade.test.js test/market.test.js",
+    "test": "node --test test/engine.test.js test/cohort.test.js test/cli.test.js test/trade.test.js test/market.test.js",
     "test:desk": "node test/desk.test.js",
     "tour": "node bin/loxley.js tour",
     "mock": "node test/mock-chain.js",

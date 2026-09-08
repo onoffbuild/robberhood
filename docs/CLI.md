@@ -211,6 +211,35 @@ it passes; lime for a first launch, amber for a wallet with two or three in the 
 for graduated, blue for a non-ETH pair. The list on the right carries what the picture cannot: verdict, curve fill,
 deployer. Curve fill refreshes every twelve seconds for the ten freshest. Needs a terminal at least 100 columns wide.
 
+### survivors
+
+```
+loxley survivors [--window N] [--min-hold PCT] [--min-age MIN] [--graduated] [--top N] [--json]
+```
+
+Stop chasing fresh launches: the coins that already ran and held their ground. Every pons v2 launch in the
+window (`SURVIVOR_WINDOW_MIN`, six hours) older than `--min-age` (`SURVIVOR_MIN_AGE_MIN`, an hour) is read from
+logs alone, three reads each: the curve's trades, the token's transfers. From those, per token:
+
+| column | meaning |
+|---|---|
+| cohort | the wallets that bought on the curve in the first `SURVIVOR_COHORT_MIN` minutes, and the ETH they put in |
+| hold % | the ETH-weighted share of that cohort still holding at least 80 % of its peak balance; "by count" is the unweighted share. This is the "FOMO hold %" |
+| vs peak | the last curve trade's price as a share of the peak curve trade's price. On a pool token this is the curve's own history, not the pool's |
+| dev out | ETH the deployer, and every wallet the deployer sent tokens to, has taken out of the curve, as a share of all the ETH in |
+| top-5 | the five largest cohort wallets' share of what the cohort still holds. Conviction from two whales is not conviction |
+| churn | new holders minus holders gone to zero in the last `SURVIVOR_COHORT_MIN` minutes |
+
+The stamp: **SURVIVOR** when hold ≥ `SURVIVOR_MIN_HOLD_PCT` (20), price ≥ `SURVIVOR_MIN_RETRACE_PCT` (50) of its
+peak, deployer out ≤ `SURVIVOR_MAX_DEV_OUT_PCT` (30), a cohort of `SURVIVOR_MIN_COHORT` (8) or more, and no
+warning; **CAREFUL** with hold between `SURVIVOR_HOLD_CARE_PCT` (15) and 20, or a top-5 over
+`SURVIVOR_MAX_COHORT_TOP5_PCT` (60), or holders leaving; **AVOID** otherwise, and the line under the table
+names the rule. `--min-hold` overrides the one number that matters most. `--graduated` keeps pool tokens only.
+`scan` prints the same block for one token as COHORT.
+
+The thresholds are a starting point, not a result. Run `--json` over a few days of windows and tune them
+against what those tokens did next; that is what the numbers in the post that inspired this never had.
+
 ### scan
 
 ```
