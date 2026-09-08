@@ -18,6 +18,8 @@ the wire.
 | `exit.rs` | the exit engine, pure and tested: siren, tiered take-profit, tightening trail, stop, dead-launch stop, max hold, graduation exit |
 | `state.rs` | the one loop where feed events, desk commands, curve estimates, exit decisions and the bank meet; a siren fires the pre-signed exit without waiting for the block event |
 | `ipc.rs` | the unix socket to the Node desk, one JSON object per line, wei as hex strings |
+| `entry.rs` | the entry path: receipt of the launch tx off the node for the curve address, five curve reads in parallel, the buy sized with the curve maths and timed to the tax crossing |
+| `bin/mock.rs` | a fake feed and a fake node on localhost so the whole loop runs offline |
 
 ## Facts the design rests on
 
@@ -44,15 +46,29 @@ PRIVATE_KEY=0x… ./target/release/loxley-engine run                    # armed:
 
 `FEED_URL` and `RPC_URL` override the public endpoints. Point them at your own relay and node.
 
+## Run it offline
+
+```
+cargo build
+./target/debug/mock --launch-after-ms 2500 --sell-after-ms 7000 &
+PRIVATE_KEY=0x<any 32 bytes> FEED_URL=ws://127.0.0.1:9101 RPC_URL=http://127.0.0.1:9102 ./target/debug/loxley-engine run --socket /tmp/e.sock
+```
+
+Then on the socket send `{"op":"auto","eth":"0x16345785d8a0000"}` and watch: `launch`, `launch_ready`
+a few ms later, `planned` with the fire time, `opened` at the crossing, then when the deployer's sell
+appears in the feed: `siren`, `decision`, `fired` with the pre-signed bytes, about a millisecond apart.
+
 ## The desk protocol
 
 One JSON object per line on the socket. Wei are hex strings.
 
-Desk to engine: `{"op":"watch","curves":[],"tokens":[],"wallets":[]}`, `{"op":"rules",…bps and ms…}`,
+Desk to engine: `{"op":"auto","eth":"0x…","ceiling_bps":300,"max_creator_tax_bps":500,"max_exemptions":2,"max_open":1}` for engine-side
+entry, or `{"op":"enter","hash":"0x…","eth":"0x…"}` after a `launch_ready` to let the desk's scorer decide (it has until the crossing, about 2.9 s);
+`{"op":"wire","ms":2}` for the one-way wire estimate; `{"op":"watch","curves":[],"tokens":[],"wallets":[]}`, `{"op":"rules",…bps and ms…}`,
 `{"op":"open","curve":…,"token":…,"cost":"0x…","tokens":"0x…","quote_reserve":"0x…","token_reserve":"0x…","fee_bps":100,"creator_tax_bps":200,"wallets":[deployer,…]}`,
 `{"op":"resync",…}`, `{"op":"phase","curve":…,"halted":true}`, `{"op":"sell","curve":…,"bps":5000}`, `{"op":"close",…}`, `{"op":"gas",…}`, `{"op":"ping"}`.
 
-Engine to desk: `hello`, `launch`, `block`, `mark`, `siren`, `decision`, `fired`, `error`.
+Engine to desk: `hello`, `launch`, `launch_ready`, `planned`, `opened`, `block`, `mark`, `siren`, `decision`, `fired`, `error`.
 
 Default exit rules, all overridable: take profit +80 %, stop −35 %, one tier (sell half at +100 %),
 trail 30 % wide, 15 % past +200 %, 10 % past +900 %, armed once the peak reaches +10 %, dead launch
@@ -61,8 +77,8 @@ if not +15 % after 2 min, max hold 45 min, leave when the curve is 90 % full, em
 
 ## Not here yet
 
-- the entry path: score a `launch` event, arm a buy at the tax crossing, fire on the local clock
 - the Node side of the socket (`cli/` still runs its own marks; nothing reads the engine yet)
+- the `sequencer_client` stream spins on its buffer mutex while idle and burns a core; replace it with a thin reader of our own once the feed shape is confirmed live
 - the graduation task (fire the pool swap on `PoolGraduated`)
 - receipt confirmation after a fire (the nonce is resynced only on a send error today)
 - curve fill toward graduation in the mark (`fill_bps` is always None)

@@ -29,8 +29,18 @@ pub enum Inbound {
     Sell { curve: Address, #[serde(default = "all")] bps: u64 },
     /// gas parameters for the bank
     Gas { max_fee: String, max_priority: String, limit: u64 },
+    /// buy this launch (by its launch tx hash) at the tax crossing. Must arrive before the crossing.
+    Enter { hash: alloy::primitives::B256, eth: String, #[serde(default = "ceiling")] ceiling_bps: u64, #[serde(default = "slip")] slippage_bps: u64 },
+    /// engine-side entry without the desk: every launch that passes these filters is bought
+    Auto { eth: String, #[serde(default = "ceiling")] ceiling_bps: u64, #[serde(default = "slip")] slippage_bps: u64, #[serde(default = "u64max")] max_creator_tax_bps: u64, #[serde(default = "u64max")] max_exemptions: u64, #[serde(default = "one")] max_open: u64, #[serde(default)] off: bool },
+    /// the one-way wire estimate to the sequencer, ms, subtracted from every fire time
+    Wire { ms: u64 },
     Ping,
 }
+fn ceiling() -> u64 { 300 }
+fn slip() -> u64 { 300 }
+fn u64max() -> u64 { u64::MAX }
+fn one() -> u64 { 1 }
 fn all() -> u64 { 10_000 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -45,7 +55,12 @@ pub struct RulesMsg {
 pub enum Outbound {
     Hello { engine: String, address: Option<Address>, paper: bool },
     Pong,
-    Launch { seq: u64, from: Address, name: String, symbol: String, quote_in: String, creator_tax_bps: u16, exemptions: usize, recipient: Address },
+    Launch { seq: u64, hash: alloy::primitives::B256, from: Address, name: String, symbol: String, quote_in: String, creator_tax_bps: u16, exemptions: usize, recipient: Address },
+    /// the launch's curve is known and read; the desk has until the crossing to say `enter`
+    LaunchReady { hash: alloy::primitives::B256, token: Address, curve: Address, deployer: Address, native: bool, quote_reserve: String, token_reserve: String, fee_bps: u64, creator_tax_bps: u64, crossing_in_ms: i64 },
+    /// a buy is signed and waiting for its fire time
+    Planned { curve: Address, spend: String, min_out: String, fire_in_ms: i64, tax_bps: u64 },
+    Opened { curve: Address, token: Address, cost: String, tokens: String, hash: String, ms: u128 },
     Block { seq: u64, ts: u64, txs: usize },
     Mark { curve: Address, value: String, gain_bps: i64, peak_bps: i64, halted: bool },
     Siren { curve: Address, kind: String, from: Address, detail: String },

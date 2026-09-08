@@ -3,7 +3,7 @@
 
 use crate::abi::{self, LaunchCall, SellCall};
 use alloy::consensus::Transaction;
-use alloy::primitives::{Address, U256};
+use alloy::primitives::{Address, B256, U256};
 use anyhow::Result;
 use arb_sequencer_consensus::transactions::ArbTxEnvelope;
 use futures_util::StreamExt;
@@ -18,7 +18,7 @@ use tokio::sync::{RwLock, mpsc};
 pub enum Event {
     /// A launchAndBuy was sequenced. The token and curve addresses are not in the calldata;
     /// they come from the TokenLaunched log one block later, or from a CREATE2 prediction.
-    Launch { seq: u64, ts: u64, from: Address, call: LaunchCall, seen: Instant },
+    Launch { seq: u64, ts: u64, hash: B256, from: Address, call: LaunchCall, seen: Instant },
     /// Curve.sell from a watched wallet on a curve we hold. Fire the pre-signed exit now.
     WatchedSell { seq: u64, curve: Address, from: Address, call: SellCall, seen: Instant },
     /// ERC20 transfer out of a watched wallet: the second-wallet rug the JS side admits it cannot see.
@@ -78,7 +78,7 @@ pub async fn run(url: &str, connections: u8, watch: SharedWatch, out: mpsc::Send
             let from = from.unwrap_or(Address::ZERO);
             if to == abi::LAUNCH_ROUTER && sel == abi::SEL_LAUNCH_AND_BUY {
                 if let Some(call) = abi::decode_launch(input) {
-                    let _ = out.send(Event::Launch { seq, ts: msg.timestamp, from, call, seen }).await;
+                    let _ = out.send(Event::Launch { seq, ts: msg.timestamp, hash: tx.hash(), from, call, seen }).await;
                 }
                 continue;
             }

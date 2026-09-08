@@ -33,6 +33,10 @@ sol! {
     function realQuoteReserve() view returns (uint256);
     function getReserves() view returns (uint256 quoteReserve, uint256 tokenReserve);
     function launchedAt() view returns (uint256);
+    function feeBps() view returns (uint256);
+    function creatorTaxBps() view returns (uint256);
+    function sellableTokens() view returns (uint256);
+    function isNativeQuote() view returns (bool);
     function transfer(address to, uint256 amount) returns (bool);
 }
 

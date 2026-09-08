@@ -45,6 +45,15 @@ impl Sender {
         let r = self.call(None, "eth_getTransactionCount", json!([format!("{who:?}"), "pending"])).await?;
         Ok(u64::from_str_radix(r.as_str().unwrap_or("0x0").trim_start_matches("0x"), 16)?)
     }
+    pub async fn eth_call(&self, to: alloy::primitives::Address, data: &[u8]) -> Result<Bytes> {
+        let r = self.call(None, "eth_call", json!([{"to": format!("{to:?}"), "data": format!("0x{}", hex::encode(data))}, "latest"])).await?;
+        Ok(r.as_str().ok_or_else(|| anyhow!("bad call result"))?.parse()?)
+    }
+    /// None until the node has the receipt
+    pub async fn receipt(&self, hash: B256) -> Result<Option<Value>> {
+        let r = self.call(None, "eth_getTransactionReceipt", json!([format!("{hash:?}")])).await?;
+        Ok(if r.is_null() { None } else { Some(r) })
+    }
     pub async fn gas_price(&self) -> Result<u128> {
         let r = self.call(None, "eth_gasPrice", json!([])).await?;
         Ok(u128::from_str_radix(r.as_str().unwrap_or("0x0").trim_start_matches("0x"), 16)?)

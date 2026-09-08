@@ -8,6 +8,7 @@
 mod abi;
 mod clock;
 mod curve;
+mod entry;
 mod exit;
 mod feed;
 mod ipc;
@@ -103,8 +104,8 @@ async fn main() -> Result<()> {
             let (mut n, mut sum_ms, mut max_ms) = (0u64, 0u128, 0u128);
             while let Some(ev) = rx.recv().await {
                 match ev {
-                    feed::Event::Launch { seq, from, call, seen, .. } => {
-                        println!("LAUNCH  seq={seq} ${} \"{}\" by {from:?} quoteIn={} creatorTax={}bps exemptions={} (+{:?} since receive)",
+                    feed::Event::Launch { seq, hash, from, call, seen, .. } => {
+                        println!("LAUNCH  seq={seq} {hash:?} ${} \"{}\" by {from:?} quoteIn={} creatorTax={}bps exemptions={} (+{:?} since receive)",
                             call.symbol, call.name, call.quote_in, call.creator_tax_bps, call.exemptions.len(), seen.elapsed());
                     }
                     feed::Event::Block { seq, ts, txs, seen } => {
