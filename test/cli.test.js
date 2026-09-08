@@ -63,6 +63,26 @@ test('survivors: every launch in the window gets a cohort, a stamp and a reason'
   assert.ok(['SURVIVOR', 'CAREFUL', 'AVOID'].includes(mock.stamp));
 });
 
+test('engine: the desk drives the Rust engine through a launch, a fill and a pre-signed exit', async t => {
+  const dir = path.resolve(__dirname, '..', 'engine', 'target');
+  const bin = ['release', 'debug'].map(d => path.join(dir, d, 'loxley-engine')).find(f => fs.existsSync(f));
+  const mockBin = bin && path.join(path.dirname(bin), 'mock');
+  if (!bin || !fs.existsSync(mockBin)) { t.skip('engine not built: cd engine && cargo build'); return; }
+  const sock = path.join(os.tmpdir(), 'loxley-engine-test-' + process.pid + '.sock');
+  const feedMock = spawn(mockBin, ['--feed', '127.0.0.1:9151', '--rpc', '127.0.0.1:9152', '--launch-after-ms', '2500', '--sell-after-ms', '6500'], { stdio: 'ignore' });
+  await new Promise(r => setTimeout(r, 500));
+  const eng = spawn(bin, ['run', '--socket', sock, '--connections', '1'], { env: Object.assign({}, process.env, { FEED_URL: 'ws://127.0.0.1:9151', RPC_URL: 'http://127.0.0.1:9152' }), stdio: 'ignore' });
+  await new Promise(r => setTimeout(r, 1500));
+  try {
+    const r = await run(['engine', '--socket', sock, '--eth', '0.1', '--auto', '--for', '9'], { env: { RPC_URL: 'http://127.0.0.1:9152', MAX_EXEMPT: '2' }, timeout: 15000 });
+    assert.equal(r.code, 0, r.all);
+    assert.ok(r.out.includes('paper'), 'no key: paper');
+    assert.ok(r.out.includes('launch') && r.out.includes('$MOCK'), 'the launch');
+    assert.ok(r.out.includes('FILL'), 'the fill at the crossing: ' + r.out);
+    assert.ok(r.out.includes('SIREN') && r.out.includes('OUT'), 'the deployer sold, the pre-signed exit went: ' + r.out);
+  } finally { eng.kill(); feedMock.kill(); }
+});
+
 test('scan: a token still on its curve has no council, has a door', async () => {
   const tok = M.state.launches[2].token;
   const r = await run(['scan', tok]);

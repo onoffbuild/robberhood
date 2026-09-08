@@ -83,9 +83,13 @@ impl Engine {
                 if let Some(a) = self.auto.clone() {
                     let p = &self.launches[&hash];
                     let open = self.held.len() as u64 + self.launches.values().filter(|x| x.plan.is_some()).count() as u64;
-                    if p.creator_tax_bps as u64 <= a.max_creator_tax_bps && p.exemptions as u64 <= a.max_exemptions && open < a.max_open && p.ready.native {
-                        self.enter(hash, a.eth, a.ceiling_bps, a.slippage_bps).await;
-                    }
+                    let mut why = Vec::new();
+                    if !p.ready.native { why.push(format!("paired with {:?}, not ETH", p.ready.pair)); }
+                    if p.creator_tax_bps as u64 > a.max_creator_tax_bps { why.push(format!("creator tax {} bps > {}", p.creator_tax_bps, a.max_creator_tax_bps)); }
+                    if p.exemptions as u64 > a.max_exemptions { why.push(format!("{} exempt wallets > {}", p.exemptions, a.max_exemptions)); }
+                    if open >= a.max_open { why.push(format!("open positions {open} >= {}", a.max_open)); }
+                    if why.is_empty() { self.enter(hash, a.eth, a.ceiling_bps, a.slippage_bps).await; }
+                    else { self.say(Outbound::Passed { hash, why: why.join(" · ") }); }
                 }
             }
             Internal::Fire(curve) => self.fire_buy(curve).await,

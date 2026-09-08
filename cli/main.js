@@ -19,6 +19,7 @@ const COMMANDS = {
   watch: { file: 'watch', h: 'the exit watch: one line per poll, the siren when the pool turns, a black box if you ask', a: '<token> [--every S] [--for S] [--rec FILE] [--sim]' },
   xray: { file: 'xray', h: 'the deployer behind a token, or a wallet directly', a: '<token|wallet>' },
   exit: { file: 'exit', h: 'what leaving costs right now', a: '<token> [eth]' },
+  engine: { file: 'engine', h: 'the desk\'s side of the Rust engine: every launch the feed shows, scored here and entered there before the tax crosses; fills, marks, sirens and exits as they happen', a: '[--socket PATH] [--eth X] [--min-score N] [--max-open N] [--auto] [--for S]' },
   snipe: { file: 'snipe', h: 'the sniper: fires on paper by default, with --live from the wallet; --grad fires on graduation instead', a: '[--live] [--grad] [--eth X] [--budget X] [--min-score N] [--max-open N] [--keyword RE] [--for S] [--exit-on-stop] [--sim]' },
   wallet: { file: 'wallet', h: 'the wallet: show it, import a key or a seed phrase into an encrypted keystore, make a burner, forget it', a: '[show|import|new|forget|balance]' },
   buy: { file: 'buy', h: 'buy a token with ETH, on the curve or in the pool by phase. plan, simulate, ask, send', a: '<token> <eth> [--slippage BPS] [--max-tax BPS] [--dry] [--yes]' },
@@ -55,7 +56,7 @@ function makeLog(flags) {
   return { info: s => line(ui.C.none, s), ok: s => line(ui.C.green, s), warn: s => line(ui.C.amber, s), error: s => line(ui.C.red, s), dim: s => line(ui.C.dim, s), raw: s => process.stdout.write(s + '\n') };
 }
 
-const GROUPS = [['start here', ['tour']], ['read', ['doctor', 'market', 'hunt', 'radar', 'survivors', 'scan', 'watch', 'xray', 'dev', 'fees', 'exit', 'replay', 'desk']], ['trade', ['wallet', 'buy', 'sell', 'positions', 'profile', 'snipe', 'follow', 'claim']]];
+const GROUPS = [['start here', ['tour']], ['read', ['doctor', 'market', 'hunt', 'radar', 'survivors', 'scan', 'watch', 'xray', 'dev', 'fees', 'exit', 'replay', 'desk']], ['trade', ['wallet', 'buy', 'sell', 'positions', 'profile', 'snipe', 'engine', 'follow', 'claim']]];
 function help() {
   const w = Math.max(...Object.keys(COMMANDS).map(k => k.length));
   const out = [ui.logo('the exit desk for Robinhood Chain · v' + VERSION + ' · reads by default, signs only when you say so'), ''];

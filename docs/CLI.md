@@ -349,6 +349,35 @@ The door, priced now: from the pool's reserve when there is a pool (`impact = x 
 curve when there is not (`impact = x / (x + phantom + real)`, the curve's fee and creator tax). Without a size:
 0.1 / 0.25 / 0.5 / 1 / 3 ETH.
 
+### engine
+
+```
+loxley engine [--socket PATH] [--eth X] [--min-score N] [--max-open N] [--auto] [--for S]
+```
+
+The desk's side of the Rust engine in `engine/`. The engine reads the sequencer feed, keeps one pre-signed exit
+per position, and does the timing and the sending; this command decides and watches. On connect it sends the
+desk's exit rules (`TAKE_PROFIT_PCT`, `STOP_LOSS_PCT`, `TRAILING_PCT`, `MAX_HOLD_MIN`, plus half off at +100 %
+and a trail that tightens to 10 % past 10×) and prints whether the engine holds a key. Without one every fire
+is reported as `paper` and never sent.
+
+Every launch the engine sees prints as a line. When the engine has the curve (`launch_ready`, a few ms later
+off a local node) the desk reads it the way `hunt` does, one multicall, scores it, runs the sniper's refusals
+(`MIN_SCORE`, `MAX_DEV_SHARE`, `MAX_CREATOR_TAX`, twins, exempt wallets, farms, `--max-open`), and if it passes
+sends `enter` with `--eth` (`PAPER_ETH`) at `TAX_CEILING_BPS`. The read takes about a hundred milliseconds and
+the crossing is 2.9 s after the launch block, so there is time; a read that finishes inside 50 ms of the
+crossing is passed rather than fired late. `--auto` skips the desk: the engine's own filters (creator tax,
+exempt wallets, open positions) decide, which is the mode for a box with no scorer running.
+
+Then the engine reports and the desk prints: `armed` with the fire time, `FILL` at the crossing, `mark` when
+the gain moves, `SIREN` when a watched wallet (the deployer, the wallets it funded, the recipient) sells or
+transfers, the decision and its rule, `SOLD` or `OUT` (pre-signed, emergency lane) with the time on the wire.
+
+Start the engine first, on the same box: `engine/target/release/loxley-engine run --socket /tmp/loxley-engine.sock`,
+with `PRIVATE_KEY` in its environment to arm it, `FEED_URL` and `RPC_URL` at your relay and node. The socket
+path is `ENGINE_SOCKET` or `--socket`. `WIRE_MS` in `.env` is the one-way estimate to the sequencer the engine
+subtracts from every fire time. `engine/README.md` has the protocol and the offline mock.
+
 ### snipe
 
 ```

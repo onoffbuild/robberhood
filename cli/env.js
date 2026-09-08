@@ -77,6 +77,8 @@ const DEFAULTS = {
   STOP_LOSS_PCT: '35',
   TRAILING_PCT: '25',
   MAX_HOLD_MIN: '45',
+  /* the rust engine */
+  ENGINE_SOCKET: '/tmp/loxley-engine.sock', WIRE_MS: '',
   /* survivors: the coins that already ran and held */
   SURVIVOR_WINDOW_MIN: '360', SURVIVOR_MIN_AGE_MIN: '60', SURVIVOR_COHORT_MIN: '10', SURVIVOR_MIN_HOLD_PCT: '20', SURVIVOR_HOLD_CARE_PCT: '15',
   SURVIVOR_MIN_RETRACE_PCT: '50', SURVIVOR_MAX_DEV_OUT_PCT: '30', SURVIVOR_MAX_COHORT_TOP5_PCT: '60', SURVIVOR_MIN_COHORT: '8',

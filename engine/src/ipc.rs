@@ -58,6 +58,8 @@ pub enum Outbound {
     Launch { seq: u64, hash: alloy::primitives::B256, from: Address, name: String, symbol: String, quote_in: String, creator_tax_bps: u16, exemptions: usize, recipient: Address },
     /// the launch's curve is known and read; the desk has until the crossing to say `enter`
     LaunchReady { hash: alloy::primitives::B256, token: Address, curve: Address, deployer: Address, native: bool, quote_reserve: String, token_reserve: String, fee_bps: u64, creator_tax_bps: u64, crossing_in_ms: i64 },
+    /// auto mode looked at a launch and did not enter
+    Passed { hash: alloy::primitives::B256, why: String },
     /// a buy is signed and waiting for its fire time
     Planned { curve: Address, spend: String, min_out: String, fire_in_ms: i64, tax_bps: u64 },
     Opened { curve: Address, token: Address, cost: String, tokens: String, hash: String, ms: u128 },
